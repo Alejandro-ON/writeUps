@@ -1,23 +1,25 @@
 # SQL injection vulnerability allowing login bypass
-
+ 
 **Source:** PortSwigger Web Security Academy
 **Category:** SQL injection
 **Date:** 2026-09
-
+ 
 ## The target
-
-In front of us there is a shopping application which contains a SQL injection vulnerability, my job is to
-find a way to enter the website as an administrator by performing a SQL injection attack.
-
+ 
+In front of us there is a shopping application which contains a SQL injection
+vulnerability. My job is to find a way to enter the website as an administrator
+by performing a SQL injection attack.
+ 
 ## Reconnaissance
-
-The first thing I do is going for the log in option, cause the name of the lab is login bypass, in here
-the is room for typing an username and a password so I wrote some example credentials. Afer this try I was
-welcome with an "Invalid username or password" quote and nothing happened.
-
-In this execersise I used the "Burp Suite Community" tool, whick allows me to use a proxy to intercep the
-request and scan the body of it. In the BURP I intercepted this message
-
+ 
+The first thing I did was to go to the login page, since the lab is about login
+bypass. It had fields to type a username and a password, so I entered some
+example credentials. After that attempt I was greeted with an "Invalid username
+or password" message, and nothing else happened.
+ 
+For this exercise I used the Burp Suite Community tool, which lets me use a proxy
+to intercept the request and inspect its body. In Burp I intercepted this request:
+ 
 ```
 POST /login HTTP/2
 Host: 0aa5000003adb383825206700027007b.web-security-academy.net
@@ -40,48 +42,72 @@ Sec-Fetch-Dest: document
 Referer: https://0aa5000003adb383825206700027007b.web-security-academy.net/login
 Accept-Encoding: gzip, deflate, br
 Priority: u=0, i
-
+ 
 csrf=mZINrYEpE2Y7SoB7pYK44TDNnzwtq5LA&username=administrator&password=example
 ```
-So here I could see the place I would work with "csrf=mZINrYEpE2Y7SoB7pYK44TDNnzwtq5LA&username=administrator&password=example" 
-
+ 
+Here I could see the part I would be working with:
+`username=administrator&password=example`.
+ 
 ## What I tried that did not work
-
-The first thing I did was to attack the request with a `' OR 1=1--` on the password, the reason I dit it was because 
-I saw somewhere time ago and I used it without thinking, sadly it didnt worked, probably because I was attacking the wrong part of the query.
-
-Other things I tried was to type random texts looking for another type of error, but it was always the same quote "Invalid username or password" which didn't helped.
-
+ 
+The first thing I did was to attack the request with `' OR 1=1--` in the password
+field. I did it because I had seen it somewhere a while ago and I used it without
+thinking. It did not work, probably because I was attacking the wrong part of the
+query.
+ 
+The other thing I tried was typing random text looking for a different kind of
+error, but the response was always the same "Invalid username or password"
+message, which did not help.
+ 
 ## The breakthrough
-
-After thinking fow a little while, I realize that I was doing an SQL Injection attack, whick means that I'm trying to acces an item, probably from a table called user where there are two fields, the username and the password.
-
-Also, thanks to the BURP tool, I saw the caracter "&" which is known for meaning the same as AND. With all of this I thought that
-maybe the SQL query would look something like
-
+ 
+After thinking for a while, I reminded myself what I was actually doing: a SQL
+injection attack. That means I am trying to interfere with a database query,
+probably one that reads from a `users` table with at least two fields, the
+username and the password.
+ 
+At first I thought the `&` characters I saw in the intercepted body might be the
+SQL `AND`, but that is wrong: those `&` are just the separators between the form
+fields (`csrf`, `username` and `password`) in the request body, and they have
+nothing to do with SQL. The `AND` is not visible anywhere in the request; I
+deduced it. A login has to check that the username exists AND that the password
+matches, so those two conditions are almost certainly joined with `AND`. That led
+me to guess the query looked something like:
+ 
 ```sql
 SELECT * FROM users WHERE username = 'smth' AND password = 'smth'
 ```
-
+ 
 ## Exploitation
-
-I set the username to `administrator'--` and left any value in the password:
-
-```http
-POST /login HTTP/1.1
-Host: LAB-ID.web-security-academy.net
-Content-Type: application/x-www-form-urlencoded
-
-username=administrator'--&password=x
+ 
+Back in Burp, I intercepted the login request again and changed the `username`
+field in the body to `administrator'--`, leaving the password as any value. The
+modified body looked like this:
+ 
 ```
-
-The query the server builds becomes:
-
+csrf=mZINrYEpE2Y7SoB7pYK44TDNnzwtq5LA&username=administrator'--&password=example
+```
+ 
+Then I forwarded the request. With this input, the query the server builds
+becomes:
+ 
 ```sql
-SELECT * FROM users WHERE username = 'administrator'--' AND password = 'x'
+SELECT * FROM users WHERE username = 'administrator'--' AND password = 'example'
 ```
-
+ 
 The `'` closes the username string, and `--` turns the rest of the line
-(` AND password = 'x'`) into a comment, so the database ignores it. The query now
-matches the administrator row on username alone, and I am logged in as
-`administrator`.
+(` AND password = 'example'`) into a comment, so the database ignores it. The
+query now matches the administrator row on the username alone, and I was logged
+in as `administrator`.
+ 
+## Root cause and fix
+ 
+The vulnerability exist because the website introduces the text that you write inside of the query so an imput like this can easily change the structure of it. A way of fixing it is to use parameterised queries
+(prepared statements), where the username and password are sent to the database
+as separate parameters and can never alter the query logic, no matter what
+characters they contain.
+ 
+## Takeaway
+ 
+A SQL injection attack takes advantage of a vulnerability by tricking the way the application talks to its SQL database. In this case we removed the password check by treating it as a comment, using administrator'--: the ' closes the username string and the -- comments out the rest of the query.
