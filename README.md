@@ -15,6 +15,7 @@ Currently working through the PortSwigger Web Security Academy.
 | Lab | Topic | Level |
 |-----|-------|-------|
 | [SQL injection login bypass](sql-injection-login-bypass.md) | SQL injection | Apprentice |
+| [UNION attack determining colums](union-attack-determining-columns.md) | SQL injection | Practitioner |
 
 ## Hack The Box (retired machines only)
 
