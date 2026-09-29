@@ -30,7 +30,7 @@ Currently working through the PortSwigger Web Security Academy.
 [01-ElArchivoFantasma](01-ElArchivoFantasma.md) | Misc | Apprentice |
 [02-ElMensajePerdido](02-ElMensajePerdido.md) | Misc | Apprentice |
 [03-LaCajaNegra](03-LaCajaNegra.md) | Misc | Easy |
-[03-LaCajaNegra](03-LaCajaNegra.md) | Misc | Medium |
+[04-LaUltimaEvidencia](04-LaUltimaEvidencia.md) | Misc | Medium |
 
 ---
 
